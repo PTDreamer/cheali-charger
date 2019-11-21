@@ -16,6 +16,6 @@ jobs:
     - name: Submodules checkout
     - run: git submodule update
     - name: configure
-      run: ./bootstrap-avr
+    - run: ./bootstrap-avr
     - name: make
-      run: make
+    - run: make
