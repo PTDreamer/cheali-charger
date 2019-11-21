@@ -111,6 +111,7 @@ namespace SettingsMenu {
     STRING(MenuType,    "menus:");
     STRING(MenuButtons, "buttons:");
     STRING(reset,       "reset");
+    STRING(SerControl,	"ext control:");
 
     //UARToutput menu
     STRING(temp,        "temp");

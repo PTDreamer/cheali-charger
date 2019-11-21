@@ -44,6 +44,9 @@ struct Settings {
     AnalogInputs::ValueType dischargeTempOff;
 
     uint16_t audioBeep;
+#ifdef ENABLE_SERIAL_CONTROL
+    uint16_t serialControl;
+#endif
     AnalogInputs::ValueType minIc;
     AnalogInputs::ValueType maxIc;
     AnalogInputs::ValueType minId;
