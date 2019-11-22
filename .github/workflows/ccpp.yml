@@ -10,12 +10,12 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Install Dependencies
-    - run: sudo apt-get install cmake avrdude avr-libc gcc-avr
+      run: sudo apt-get install cmake avrdude avr-libc gcc-avr
     - name: Submodules init
-    - run: git submodule init
+      run: git submodule init
     - name: Submodules checkout
-    - run: git submodule update
+      run: git submodule update
     - name: configure
-    - run: ./bootstrap-avr
+      run: ./bootstrap-avr
     - name: make
-    - run: make
+      run: make
