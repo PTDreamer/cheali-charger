@@ -58,6 +58,9 @@ const Settings defaultSettings PROGMEM = {
         ANALOG_CELCIUS(60), //dischargeTempOff
 
         1,                  //AudioBeep: yes/no
+#ifdef ENABLE_SERIAL_CONTROL
+		0,					//Serial Control: yes/no
+#endif
         ANALOG_AMP(0.050),  //minIc
         SETTINGS_MAX_CHARGE_I,       //maxIc
         ANALOG_AMP(0.050),  //minId
