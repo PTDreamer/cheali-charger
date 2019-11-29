@@ -22,7 +22,9 @@
 #include "ProgramData.h"
 #include "LcdPrint.h"
 #include "memory.h"
-
+#ifdef ENABLE_SERIAL_CONTROL
+#include "ExtControl.h"
+#endif
 using namespace options;
 
 namespace MainMenu {
@@ -43,7 +45,19 @@ namespace MainMenu {
             Menu::printMethod_ = printItem;
             Menu::setIndex(index);
             index = Menu::run();
-
+#ifdef ENABLE_SERIAL_CONTROL
+        if(index < -1) {
+        	if(extControl.getCommand() == ExtControl::CMD_STOP) {
+        		extControl.setState(ExtControl::STATE_STOPPED);
+        		index = 0;
+        	}
+        	else if(extControl.getCommand() == ExtControl::CMD_SETUP)
+                ProgramMenus::selectProgram(LOAD_VOLATILE_BATTERY);
+        }
+        else if(index >= 0) {
+        	extControl.setState(ExtControl::STATE_NOT_CONTROLING);
+        }
+#endif
             if(index >= 0)  {
                 if(index == 0) {
                     OptionsMenu::run();

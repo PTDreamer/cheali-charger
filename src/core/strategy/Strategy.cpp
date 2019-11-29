@@ -23,7 +23,9 @@
 #include "Monitor.h"
 #include "AnalogInputs.h"
 #include "Screen.h"
-
+#ifdef ENABLE_SERIAL_CONTROL
+#include "ExtControl.h"
+#endif
 #define STRATEGY_DISABLE_OUTPUT_AFTER_SECONDS (3*60)
 
 namespace Strategy {
@@ -116,10 +118,14 @@ namespace Strategy {
     {
         Screen::keyboardButton = BUTTON_NONE;
         bool run = true;
+        bool extRun = true;
         uint16_t newMesurmentData = 0;
         Strategy::statusType status = Strategy::RUNNING;
         strategyPowerOn();
         do {
+#ifdef ENABLE_SERIAL_CONTROL
+        	extRun = extControl.getCommand() != ExtControl::CMD_STOP;
+#endif
             Screen::keyboardButton =  Keyboard::getPressedWithDelay();
             Screen::doStrategy();
 
@@ -135,8 +141,11 @@ namespace Strategy {
             }
             if(!run && exitImmediately && status != Strategy::ERROR)
                 break;
-        } while(Screen::keyboardButton != BUTTON_STOP);
-
+        } while(Screen::keyboardButton != BUTTON_STOP && extRun);
+#ifdef ENABLE_SERIAL_CONTROL
+        if(status == Strategy::ERROR) extControl.setState(ExtControl::STATE_ERROR);
+        if(!exitImmediately && (status == Strategy::COMPLETE)) extControl.setState(ExtControl::STATE_COMPLETED);
+#endif
         strategyPowerOff();
         return status;
     }

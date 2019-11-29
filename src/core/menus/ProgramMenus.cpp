@@ -24,7 +24,10 @@
 #include "LcdPrint.h"
 #include "ProgramDataMenu.h"
 #include "memory.h"
-
+#ifdef ENABLE_SERIAL_CONTROL
+#include "ExtControl.h"
+#include <string.h>
+#endif
 // Program selection, depends on the battery type
 
 namespace ProgramMenus {
@@ -146,13 +149,31 @@ namespace ProgramMenus {
 void ProgramMenus::selectProgram(uint8_t index)
 {
     int8_t i;
-    ProgramData::loadProgramData(index);
+#ifdef ENABLE_SERIAL_CONTROL
+    if(index != LOAD_VOLATILE_BATTERY) {
+    	ProgramData::loadProgramData(index);
+    }
+    else {
+    	memcpy(&ProgramData::battery, extControl.getVolatileBattery(), sizeof(ProgramData::Battery));
+    	ProgramData::check();
+    }
+#endif
     while(true) {
         selectProgramMenu();
 
         Menu::setIndex(programMenuIndex_);
         i = Menu::run();
         programMenuIndex_ = Menu::getIndex();
+#ifdef ENABLE_SERIAL_CONTROL
+        if(i < -1) {
+        	if(extControl.getCommand() == ExtControl::CMD_STOP)
+        		break;
+        	else if(extControl.getCommand() == ExtControl::CMD_SETUP) {
+        		Program::run((Program::ProgramType)extControl.getCommandData());
+        		return;
+        	}
+        }
+#endif
         if(i < 0) {
             break;
         } else {
