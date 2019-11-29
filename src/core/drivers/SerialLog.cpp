@@ -97,7 +97,6 @@ void powerOn()
         if(settings.UARToutput == Settings::TempOutput)
             return;
 #endif
-
     serialBegin();
 
     state = Starting;
@@ -107,8 +106,8 @@ void powerOff()
 {
     if(state == Off)
         return;
-
-    serialEnd();
+    if(!settings.serialControl)
+    	serialEnd();
     state = Off;
 }
 
