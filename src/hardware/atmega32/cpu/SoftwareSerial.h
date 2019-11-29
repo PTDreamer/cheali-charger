@@ -32,7 +32,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define SoftwareSerial_h
 
 #include <inttypes.h>
-
+#include <stddef.h>
 /******************************************************************************
 * Definitions
 ******************************************************************************/

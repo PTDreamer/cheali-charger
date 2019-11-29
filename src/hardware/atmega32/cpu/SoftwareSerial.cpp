@@ -145,6 +145,7 @@ void SoftwareSerial::recv()
     if (next != _receive_buffer_head)
     {
       // save new data in buffer: tail points to where byte goes
+
       _receive_buffer[_receive_buffer_tail] = d; // save new byte
       _receive_buffer_tail = next;
     } 
