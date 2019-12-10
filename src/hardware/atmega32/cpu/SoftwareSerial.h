@@ -52,8 +52,6 @@ private:
   uint8_t _receivePin;
   uint8_t _receiveBitMask;
   volatile uint8_t *_receivePortRegister;
-  uint8_t _transmitBitMask;
-  volatile uint8_t *_transmitPortRegister;
   volatile uint8_t *_pcint_maskreg;
   uint8_t _pcint_maskvalue;
 
@@ -87,21 +85,15 @@ private:
 
 public:
   // public methods
-  SoftwareSerial(uint8_t receivePin, uint8_t transmitPin, bool inverse_logic = false);
+  SoftwareSerial(uint8_t receivePin, bool inverse_logic = false);
   ~SoftwareSerial();
   void begin(long speed);
   bool listen();
   void end();
   bool isListening() { return this == active_object; }
   bool stopListening();
-  bool overflow() { bool ret = _buffer_overflow; if (ret) _buffer_overflow = false; return ret; }
-  int peek();
 
-  virtual size_t write(uint8_t byte);
   virtual int read();
-  virtual int available();
-  virtual void flush();
-  operator bool() { return true; }
   
   // public only for easy access by interrupt handlers
   static inline void handle_interrupt() __attribute__((__always_inline__));

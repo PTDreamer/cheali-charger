@@ -97,23 +97,6 @@ bool SoftwareSerial::stopListening()
 //
 void SoftwareSerial::recv()
 {
-
-#if GCC_VERSION < 40302
-// Work-around for avr-gcc 4.3.0 OSX version bug
-// Preserve the registers that the compiler misses
-// (courtesy of Arduino forum user *etracer*)
-  asm volatile(
-    "push r18 \n\t"
-    "push r19 \n\t"
-    "push r20 \n\t"
-    "push r21 \n\t"
-    "push r22 \n\t"
-    "push r23 \n\t"
-    "push r26 \n\t"
-    "push r27 \n\t"
-    ::);
-#endif  
-
   uint8_t d = 0;
 
   // If RX line is high, then we don't see any start bit
@@ -161,21 +144,6 @@ void SoftwareSerial::recv()
     setRxIntMsk(true);
 
   }
-
-#if GCC_VERSION < 40302
-// Work-around for avr-gcc 4.3.0 OSX version bug
-// Restore the registers that the compiler misses
-  asm volatile(
-    "pop r27 \n\t"
-    "pop r26 \n\t"
-    "pop r23 \n\t"
-    "pop r22 \n\t"
-    "pop r21 \n\t"
-    "pop r20 \n\t"
-    "pop r19 \n\t"
-    "pop r18 \n\t"
-    ::);
-#endif
 }
 
 uint8_t SoftwareSerial::rx_pin_read()
@@ -203,19 +171,10 @@ ISR(INT0_vect)
 }
 #endif
 
-#if defined(INT1_vect)
-ISR(INT1_vect, ISR_ALIASOF(INT0_vect));
-#endif
-
-#if defined(INT2_vect)
-ISR(INT2_vect, ISR_ALIASOF(INT0_vect));
-#endif
-
-
 //
 // Constructor
 //
-SoftwareSerial::SoftwareSerial(uint8_t receivePin, uint8_t transmitPin, bool inverse_logic /* = false */) : 
+SoftwareSerial::SoftwareSerial(uint8_t receivePin, bool inverse_logic /* = false */) :
   _rx_delay_centering(0),
   _rx_delay_intrabit(0),
   _rx_delay_stopbit(0),
@@ -223,7 +182,6 @@ SoftwareSerial::SoftwareSerial(uint8_t receivePin, uint8_t transmitPin, bool inv
   _buffer_overflow(false),
   _inverse_logic(inverse_logic)
 {
-  setTX(transmitPin);
   setRX(receivePin);
 }
 
@@ -233,18 +191,6 @@ SoftwareSerial::SoftwareSerial(uint8_t receivePin, uint8_t transmitPin, bool inv
 SoftwareSerial::~SoftwareSerial()
 {
   end();
-}
-
-void SoftwareSerial::setTX(uint8_t tx)
-{
-  // First write, then set output. If we do this the other way around,
-  // the pin would be output low for a short while before switching to
-  // output high. Now, it is input with pullup for a short while, which
-  // is fine. With inverse logic, either order is fine.
-  IO::digitalWrite(tx, _inverse_logic ? LOW : HIGH);
-  IO::pinMode(tx, OUTPUT);
-  _transmitBitMask = IO::pinBitmask(tx);
-  _transmitPortRegister = IO::pinToInputPort(tx);
 }
 
 void SoftwareSerial::setRX(uint8_t rx)
@@ -283,8 +229,7 @@ void SoftwareSerial::begin(long speed)
   _tx_delay = subtract_cap(bit_delay, 15 / 4);
 
   // Only setup rx when we have a valid PCINT for this pin
-  if (true) {//check if receive pin has int
-    #if GCC_VERSION > 40800
+  if (_receivePin == 11 || _receivePin == 12 || _receivePin == 42) {//check if receive pin has int
     // Timings counted from gcc 4.8.2 output. This works up to 115200 on
     // 16Mhz and 57600 on 8Mhz.
     //
@@ -311,15 +256,6 @@ void SoftwareSerial::begin(long speed)
     // time for ISR cleanup, which makes 115200 baud at 16Mhz work more
     // reliably
     _rx_delay_stopbit = subtract_cap(bit_delay * 3 / 4, (37 + 11) / 4);
-    #else // Timings counted from gcc 4.3.2 output
-    // Note that this code is a _lot_ slower, mostly due to bad register
-    // allocation choices of gcc. This works up to 57600 on 16Mhz and
-    // 38400 on 8Mhz.
-    _rx_delay_centering = subtract_cap(bit_delay / 2, (4 + 4 + 97 + 29 - 11) / 4);
-    _rx_delay_intrabit = subtract_cap(bit_delay, 11 / 4);
-    _rx_delay_stopbit = subtract_cap(bit_delay * 3 / 4, (44 + 17) / 4);
-    #endif
-
 
     // Enable the PCINT for the entire port here, but never disable it
     // (others might also need it, so we disable the interrupt by using
@@ -391,84 +327,4 @@ int SoftwareSerial::read()
   return d;
 }
 
-int SoftwareSerial::available()
-{
-  if (!isListening())
-    return 0;
-
-  return (_receive_buffer_tail + _SS_MAX_RX_BUFF - _receive_buffer_head) % _SS_MAX_RX_BUFF;
-}
-
-size_t SoftwareSerial::write(uint8_t b)
-{
-  if (_tx_delay == 0 || _transmitBitMask == 0) {
-    return 0;
-  }
-
-  // By declaring these as local variables, the compiler will put them
-  // in registers _before_ disabling interrupts and entering the
-  // critical timing sections below, which makes it a lot easier to
-  // verify the cycle timings
-  volatile uint8_t *reg = _transmitPortRegister;
-  uint8_t reg_mask = _transmitBitMask;
-  uint8_t inv_mask = ~_transmitBitMask;
-  uint8_t oldSREG = SREG;
-  bool inv = _inverse_logic;
-  uint16_t delay = _tx_delay;
-
-  if (inv)
-    b = ~b;
-
-  cli();  // turn off interrupts for a clean txmit
-
-  // Write the start bit
-  if (inv)
-    *reg |= reg_mask;
-  else
-    *reg &= inv_mask;
-
-  tunedDelay(delay);
-
-  // Write each of the 8 bits
-  for (uint8_t i = 8; i > 0; --i)
-  {
-    if (b & 1) // choose bit
-      *reg |= reg_mask; // send 1
-    else
-      *reg &= inv_mask; // send 0
-
-    tunedDelay(delay);
-    b >>= 1;
-  }
-
-  // restore pin to natural state
-  if (inv)
-    *reg &= inv_mask;
-  else
-    *reg |= reg_mask;
-
-  SREG = oldSREG; // turn interrupts back on
-  tunedDelay(_tx_delay);
-  
-  return 1;
-}
-
-void SoftwareSerial::flush()
-{
-  // There is no tx buffering, simply return
-}
-
-int SoftwareSerial::peek()
-{
-  if (!isListening())
-    return -1;
-
-  // Empty buffer?
-  if (_receive_buffer_head == _receive_buffer_tail)
-    return -1;
-
-  // Read from "head"
-  return _receive_buffer[_receive_buffer_head];
-}
-
-SoftwareSerial SSerial(42, 0, false);
+SoftwareSerial SSerial(42, false);
