@@ -40,7 +40,9 @@ const cprintf::ArrayData FanOnData  PROGMEM     = {SettingsFanOn, &settings.fanO
 const char * const SettingsUART[] PROGMEM = {
         string_disable,
         string_normal,
+#ifdef ENABLE_EXTERNAL_CONTROL
 		string_ExtControl,
+#endif
         string_debug,
         string_extDebug,
         string_extDebugAdc

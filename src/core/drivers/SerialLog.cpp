@@ -299,7 +299,11 @@ void sendTime()
 {
     int uart = settings.UART;
     bool adc = false;
+#ifndef ENABLE_EXTERNAL_CONTROL
     STATIC_ASSERT(Settings::ExtDebugAdc == 4);
+#else
+    STATIC_ASSERT(Settings::ExtDebugAdc == 5);
+#endif
     if(uart > Settings::ExtDebug) {
         adc = true;
     }
