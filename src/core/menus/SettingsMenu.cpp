@@ -19,7 +19,6 @@
 #include "SettingsMenu.h"
 #include "Utils.h"
 #include "Buzzer.h"
-#include "SerialLog.h"
 #include "EditMenu.h"
 #include "memory.h"
 
@@ -41,6 +40,7 @@ const cprintf::ArrayData FanOnData  PROGMEM     = {SettingsFanOn, &settings.fanO
 const char * const SettingsUART[] PROGMEM = {
         string_disable,
         string_normal,
+		string_ExtControl,
         string_debug,
         string_extDebug,
         string_extDebugAdc
@@ -118,9 +118,6 @@ const EditMenu::StaticEditData editData[] PROGMEM = {
 {string_UARTview,       COND_ALWAYS,    EDIT_STRING_ARRAY(UARTData),        {1, 0, Settings::ExtDebugAdc}},
 {string_UARTspeed,      COND_UART_ON,   EDIT_UINT32_ARRAY(UARTSpeedsData),  {1, 0, Settings::UARTSpeeds-1}},
 {string_UARToutput,     COND_UART_ON,   EDIT_STRING_ARRAY(UARToutputData),  {1, 0, UARToutputDataSize}},
-#ifdef ENABLE_SERIAL_CONTROL
-{string_SerControl,		COND_UART_ON,	SETTING(ON_OFF, serialControl),		{1, 0, 1}},
-#endif
 {string_MenuType,       COND_ALWAYS,    EDIT_STRING_ARRAY(menuTypeData),    {1, 0, 1}},
 {string_MenuButtons,    COND_ALWAYS,    EDIT_STRING_ARRAY(menuButtonsData), {1, 0, 1}},
 #ifdef ENABLE_SETTINGS_MENU_RESET
