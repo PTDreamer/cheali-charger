@@ -23,7 +23,7 @@
 #include "Settings.h"
 #include "Program.h"
 #include "Utils.h"
-
+#include "ExtControl.h"
 namespace StartInfoStrategy {
     uint8_t ok_;
 
@@ -93,6 +93,19 @@ Strategy::statusType StartInfoStrategy::doStrategy()
 
     if(Keyboard::getLast() == BUTTON_NONE)
         ok_ = 0;
+#ifdef ENABLE_EXTERNAL_CONTROL
+    uint8_t error = ExtControl::ERROR_NONE;
+    if(balance) {
+    	error |= ExtControl::ERROR_BALANCE;
+    }
+    if(v_out) {
+    	error |= ExtControl::ERROR_BATTERY;
+    }
+    ExtControl::setError((ExtControl::error_type)error);
+    if(!balance && !v_out && ExtControl::getCommand() == ExtControl::CMD_START) {
+        return Strategy::COMPLETE;
+    }
+#endif
     if(!balance && !v_out && Keyboard::getLast() == BUTTON_START) {
         ok_++;
     }
