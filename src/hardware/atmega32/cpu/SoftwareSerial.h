@@ -38,11 +38,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ******************************************************************************/
 
 #ifndef _SS_MAX_RX_BUFF
-#define _SS_MAX_RX_BUFF 64 // RX buffer size
-#endif
-
-#ifndef GCC_VERSION
-#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+#define _SS_MAX_RX_BUFF 256 // RX buffer size
 #endif
 
 class SoftwareSerial
@@ -93,7 +89,7 @@ public:
   bool isListening() { return this == active_object; }
   bool stopListening();
 
-  virtual int read();
+  int read();
   
   // public only for easy access by interrupt handlers
   static inline void handle_interrupt() __attribute__((__always_inline__));

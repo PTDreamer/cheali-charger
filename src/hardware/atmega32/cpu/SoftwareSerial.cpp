@@ -171,6 +171,14 @@ ISR(INT0_vect)
 }
 #endif
 
+#if defined(INT1_vect)
+ISR(INT1_vect, ISR_ALIASOF(INT0_vect));
+#endif
+
+#if defined(INT2_vect)
+ISR(INT2_vect, ISR_ALIASOF(INT0_vect));
+#endif
+
 //
 // Constructor
 //
