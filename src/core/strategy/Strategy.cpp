@@ -23,7 +23,7 @@
 #include "Monitor.h"
 #include "AnalogInputs.h"
 #include "Screen.h"
-#ifdef ENABLE_SERIAL_CONTROL
+#ifdef ENABLE_EXTERNAL_CONTROL
 #include "ExtControl.h"
 #endif
 #define STRATEGY_DISABLE_OUTPUT_AFTER_SECONDS (3*60)
@@ -73,8 +73,11 @@ namespace Strategy {
             if(Time::diffU16(time, Time::getSecondsU16()) > STRATEGY_DISABLE_OUTPUT_AFTER_SECONDS) {
                 AnalogInputs::powerOff();
             }
-        } while(Keyboard::getPressedWithDelay() == BUTTON_NONE);
-
+#ifdef ENABLE_EXTERNAL_CONTROL
+        } while((Keyboard::getPressedWithDelay() == BUTTON_NONE) && (ExtControl::getCommand() != ExtControl::CMD_STOP));
+#else
+    	} while(Keyboard::getPressedWithDelay() == BUTTON_NONE);
+#endif
         Buzzer::soundOff();
     }
 
@@ -119,32 +122,38 @@ namespace Strategy {
         Screen::keyboardButton = BUTTON_NONE;
         bool run = true;
         bool extRun = true;
+#ifdef ENABLE_EXTERNAL_CONTROL
+        ExtControl::setCurrentProgram(Program::programType);
+#endif
         uint16_t newMesurmentData = 0;
         Strategy::statusType status = Strategy::RUNNING;
         strategyPowerOn();
         do {
-#ifdef ENABLE_SERIAL_CONTROL
-        	extRun = extControl.getCommand() != ExtControl::CMD_STOP;
+#ifdef ENABLE_EXTERNAL_CONTROL
+        	extRun = ExtControl::getCommand() != ExtControl::CMD_STOP;
 #endif
             Screen::keyboardButton =  Keyboard::getPressedWithDelay();
             Screen::doStrategy();
 
             if(run) {
                 status = Monitor::run();
+                if(status == Strategy::ERROR)
+                	ExtControl::parseErrorFromString(Program::stopReason);
                 run = analizeStrategyStatus(status);
-
                 if(run && newMesurmentData != AnalogInputs::getFullMeasurementCount()) {
                     newMesurmentData = AnalogInputs::getFullMeasurementCount();
                     status = strategyDoStrategy();
                     run = analizeStrategyStatus(status);
                 }
             }
-            if(!run && exitImmediately && status != Strategy::ERROR)
-                break;
+            if(!run && exitImmediately && status != Strategy::ERROR) {
+               break;
+            }
         } while(Screen::keyboardButton != BUTTON_STOP && extRun);
-#ifdef ENABLE_SERIAL_CONTROL
-        if(status == Strategy::ERROR) extControl.setState(ExtControl::STATE_ERROR);
-        if(!exitImmediately && (status == Strategy::COMPLETE)) extControl.setState(ExtControl::STATE_COMPLETED);
+#ifdef ENABLE_EXTERNAL_CONTROL
+        if(Screen::keyboardButton == BUTTON_STOP) ExtControl::setState(ExtControl::STATE_NOT_CONTROLING);
+        else if(status == Strategy::ERROR) ExtControl::setError(ExtControl::ERROR_STRATEGY);
+        else if(!exitImmediately && (status == Strategy::COMPLETE)) ExtControl::setState(ExtControl::STATE_COMPLETED);
 #endif
         strategyPowerOff();
         return status;
