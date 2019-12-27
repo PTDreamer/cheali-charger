@@ -22,7 +22,7 @@
 #include "PolarityCheck.h"
 
 #define MENU_EXIT   -1
-
+#define EXTERNAL_COMMAND_REQUEST	-2
 namespace Menu {
 
     typedef void (*CallMethod)();
