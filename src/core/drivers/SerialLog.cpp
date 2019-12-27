@@ -106,8 +106,6 @@ void powerOff()
 {
     if(state == Off)
         return;
-    if(!settings.serialControl)
-    	serialEnd();
     state = Off;
 }
 
@@ -301,9 +299,7 @@ void sendTime()
 {
     int uart = settings.UART;
     bool adc = false;
-
     STATIC_ASSERT(Settings::ExtDebugAdc == 4);
-
     if(uart > Settings::ExtDebug) {
         adc = true;
     }
