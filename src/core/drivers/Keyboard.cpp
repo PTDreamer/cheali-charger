@@ -22,7 +22,7 @@
 #include "Utils.h"
 //#define ENABLE_DEBUG
 #include "debug.h"
-#ifdef ENABLE_SERIAL_CONTROL
+#ifdef ENABLE_EXTERNAL_CONTROL
 #include "ExtControl.h"
 #endif
 
@@ -76,8 +76,8 @@ uint8_t Keyboard::getPressedWithDelay()
     do {
         Time::delayDoIdle(BUTTON_DELAY);
         key = hardware::getKeyPressed();
-#ifdef ENABLE_SERIAL_CONTROL
-        if(key == BUTTON_INC && extControl.getConnected())
+#ifdef ENABLE_EXTERNAL_CONTROL
+        if(key == BUTTON_INC && ExtControl::getConnected())
         	key = BUTTON_NONE;
 #endif
 
