@@ -22,6 +22,9 @@
 #include "Utils.h"
 //#define ENABLE_DEBUG
 #include "debug.h"
+#ifdef ENABLE_EXTERNAL_CONTROL
+#include "ExtControl.h"
+#endif
 
 //delay until next key read, must not be smaller than 7ms (see: atmeag32/generic/200W/AnalogInputsADC.cpp:adc_keyboard_)
 #define BUTTON_DELAY                 7
@@ -69,6 +72,11 @@ uint8_t Keyboard::getPressedWithDelay()
     do {
         Time::delayDoIdle(BUTTON_DELAY);
         key = hardware::getKeyPressed();
+#ifdef ENABLE_EXTERNAL_CONTROL
+        if(key == BUTTON_INC && ExtControl::getConnected())
+        	key = BUTTON_NONE;
+#endif
+
         if(last_key_ != key) {
             if(debounce_ == 0) {
                 //key changed
