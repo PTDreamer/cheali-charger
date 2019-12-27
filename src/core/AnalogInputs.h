@@ -75,10 +75,10 @@ namespace AnalogInputs {
         IdischargeSet,
 
         VirtualInputs,
-        Vout,
-        Vbalancer,
+        Vout,//Vout_plus_pin - Vout_minus_pin
+        Vbalancer,//Total voltage on the balancer plug, should be close to Vout
         VoutBalancer,
-        VobInfo,
+        VobInfo,// Vout or Vbalancer (depends on the balance port being connected)
         VbalanceInfo,
 
         Iout,
