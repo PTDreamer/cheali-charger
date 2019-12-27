@@ -536,7 +536,11 @@ void ExtControl::sendExtraValues() {
     i.percentCompleted = Monitor::getChargeProcent();
     i.ETATime = Monitor::getETATime();
     i.Balance = Balancer::balance;
+#ifdef ENABLE_GET_PID_VALUE
     i.PID = hardware::getPIDValue();
+#else
+    i.PID = 0;
+#endif
     i.NeverUsedStackSize = StackInfo::getNeverUsedStackSize();
     i.FreeStack = StackInfo::getFreeStackSize();
 	sendPackage((uint8_t*)&i, PUT_EXTRA_VALUES, false, false);
