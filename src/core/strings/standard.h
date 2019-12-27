@@ -70,6 +70,9 @@ namespace options {
     STRING(settings,        "settings");
     STRING(calibrate,       "calibrate");
     STRING(resetDefault,    "reset default");
+#ifdef ENABLE_EXTERNAL_CONTROL
+    STRING(extControl,		"Ext. control");
+#endif
 }
 
 namespace ProgramData {
@@ -122,6 +125,9 @@ namespace SettingsMenu {
     //UART view menu
     STRING(disable,     "disabled");
     STRING(normal,      "normal");
+#ifdef ENABLE_EXTERNAL_CONTROL
+    STRING(ExtControl,	"ext. control");
+#endif
     STRING(debug,       "debug");
     STRING(extDebug,    "ext. deb");
     STRING(extDebugAdc, "ext. Adc");
