@@ -22,7 +22,7 @@
 #include "Blink.h"
 #include "Utils.h"
 #include "memory.h"
-#ifdef ENABLE_SERIAL_CONTROL
+#ifdef ENABLE_EXTERNAL_CONTROL
 #include "ExtControl.h"
 #endif
 
@@ -139,13 +139,14 @@ namespace Menu {
     }
 
     int8_t run(bool alwaysRefresh) {
-#ifdef ENABLE_SERIAL_CONTROL
-    	if(extControl.externalControlRequested())
-    		return EXTERNAL_COMMAND_REQUEST;
-#endif
         uint8_t key;
         render_ = true;
         do {
+#ifdef ENABLE_EXTERNAL_CONTROL
+    	if(ExtControl::externalControlRequested()) {
+    		return EXTERNAL_COMMAND_REQUEST;
+    	}
+#endif
             key = run_();
             if(key == BUTTON_NONE) waitRelease_ = false;
 
