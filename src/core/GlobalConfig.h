@@ -23,7 +23,8 @@
 #define LCD_LINES               2
 #define LCD_COLUMNS             16
 
-#define ENABLE_SERIAL_LOG
+//#define ENABLE_SERIAL_LOG
+#define ENABLE_EXTERNAL_CONTROL
 #define ENABLE_TIME_LIMIT
 #define ENABLE_LCD_RAM_CG
 #define ENABLE_SCREEN_ANIMATION
