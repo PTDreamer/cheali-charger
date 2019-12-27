@@ -137,8 +137,10 @@ namespace Strategy {
 
             if(run) {
                 status = Monitor::run();
+#ifdef ENABLE_EXTERNAL_CONTROL
                 if(status == Strategy::ERROR)
                 	ExtControl::parseErrorFromString(Program::stopReason);
+#endif
                 run = analizeStrategyStatus(status);
                 if(run && newMesurmentData != AnalogInputs::getFullMeasurementCount()) {
                     newMesurmentData = AnalogInputs::getFullMeasurementCount();
