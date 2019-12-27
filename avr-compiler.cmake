@@ -1,7 +1,7 @@
 
 SET(LTO "")
 #enable Link Time Optimization
-#SET(LTO "-flto")
+SET(LTO "-flto")
 
 SET(CSTANDARD "-std=gnu99")
 SET(CDEBUG "-g -gdwarf-2")
