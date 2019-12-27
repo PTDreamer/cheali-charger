@@ -23,10 +23,12 @@
 
 
 struct Settings {
-
-    enum UARTType {Disabled, Normal,  Debug,  ExtDebug, ExtDebugAdc};
+#ifdef ENABLE_EXTERNAL_CONTROL
+    enum UARTType {Disabled, Normal,  ExtControl, Debug,  ExtDebug, ExtDebugAdc};
+#else
+    enum UARTType {Disabled, Normal, Debug,  ExtDebug, ExtDebugAdc};
+#endif
     enum FanOnType {FanDisabled, FanAlways, FanProgram, FanTemperature, FanProgramTemperature};
-
     enum UARTOutput {TempOutput, Separated
 #ifdef ENABLE_TX_HW_SERIAL_PIN7_PIN38
         , HardwarePin7, HardwarePin38
