@@ -22,9 +22,16 @@
 #define Serial_H_
 
 #include "HardwareSerial.h"
-
+#ifdef ENABLE_EXTERNAL_CONTROL
+#include "SoftwareSerial.h"
+#endif
 namespace Serial {
     inline void  begin(unsigned long baud)     { Serial0.begin(baud); }
+#ifdef ENABLE_EXTERNAL_CONTROL
+    inline void beginRx(unsigned long baud)    { SSerial.begin(baud); }
+    inline void endRx()                        { SSerial.end(); }
+    inline int read()                          { return SSerial.read(); }
+#endif
     inline void  write(uint8_t c)              { Serial0.write(c); }
     inline void  flush()                       { Serial0.flush(); }
     inline void  end()                         { Serial0.end(); }

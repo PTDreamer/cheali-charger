@@ -22,6 +22,9 @@
 #include "Blink.h"
 #include "Utils.h"
 #include "memory.h"
+#ifdef ENABLE_EXTERNAL_CONTROL
+#include "ExtControl.h"
+#endif
 
 namespace Menu {
 
@@ -139,6 +142,11 @@ namespace Menu {
         uint8_t key;
         render_ = true;
         do {
+#ifdef ENABLE_EXTERNAL_CONTROL
+    	if(ExtControl::externalControlRequested()) {
+    		return EXTERNAL_COMMAND_REQUEST;
+    	}
+#endif
             key = run_();
             if(key == BUTTON_NONE) waitRelease_ = false;
 

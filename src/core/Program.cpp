@@ -36,7 +36,9 @@
 #include "DelayStrategy.h"
 #include "ProgramDCcycle.h"
 #include "Calibration.h"
-
+#ifdef ENABLE_EXTERNAL_CONTROL
+#include "ExtControl.h"
+#endif
 namespace Program {
     ProgramType programType;
     ProgramState programState = Program::Done;
@@ -156,6 +158,7 @@ Strategy::statusType Program::runWithoutInfo(ProgramType prog)
     resetAccumulatedMeasurements();
 
     setupProgramType(prog);
+
     switch(prog) {
         case Program::CapacityCheck:
             return ProgramDCcycle::runDCcycle(1, 3);
@@ -191,10 +194,16 @@ void Program::run(ProgramType prog)
     programState = Info;
     SerialLog::powerOn();
     AnalogInputs::powerOn();
-
+#ifdef ENABLE_EXTERNAL_CONTROL
+    if(ExtControl::getCommand() == ExtControl::CMD_SETUP) {
+    	ExtControl::setState(ExtControl::STATE_SETUP_COMPLETED);
+    }
+#endif
     if(startInfo()) {
         programState = InProgress;
-
+#ifdef ENABLE_EXTERNAL_CONTROL
+        ExtControl::setState(ExtControl::STATE_RUNNING);
+#endif
         Monitor::powerOn();
         Screen::powerOn();
 
@@ -205,6 +214,9 @@ void Program::run(ProgramType prog)
 
         Monitor::powerOff();
     }
+#ifdef ENABLE_EXTERNAL_CONTROL
+    ExtControl::setState(ExtControl::STATE_IDLE);
+#endif
     AnalogInputs::powerOff();
     SerialLog::powerOff();
     Screen::powerOff();

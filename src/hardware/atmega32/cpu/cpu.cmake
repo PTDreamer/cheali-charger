@@ -14,6 +14,9 @@ set(CPU_SOURCE
         HardwareSerial.h
         HardwareSerial.cpp
 
+        SoftwareSerial.h
+        SoftwareSerial.cpp
+
         StackInfo.cpp
 
         IO.h

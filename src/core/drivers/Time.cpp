@@ -23,7 +23,9 @@
 #include "SerialLog.h"
 #include "AnalogInputsPrivate.h"
 #include "atomic.h"
-
+#ifdef ENABLE_EXTERNAL_CONTROL
+#include "ExtControl.h"
+#endif
 //#define ENABLE_DEBUG
 #include "debug.h"
 
@@ -49,6 +51,9 @@ namespace Time {
         SerialLog::doIdle();
         Buzzer::doIdle();
         AnalogInputs::doIdle();
+#ifdef ENABLE_EXTERNAL_CONTROL
+        ExtControl::doIdle();
+#endif
     }
 
     void callback() {
