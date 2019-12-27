@@ -22,7 +22,7 @@
 #include "ProgramData.h"
 #include "LcdPrint.h"
 #include "memory.h"
-#ifdef ENABLE_SERIAL_CONTROL
+#ifdef ENABLE_EXTERNAL_CONTROL
 #include "ExtControl.h"
 #endif
 using namespace options;
@@ -32,38 +32,57 @@ namespace MainMenu {
     void printItem(uint8_t i) {
         if(i < 1) {
             lcdPrint_P(string_options);
-        } else {
+        } else if(i < MAX_PROGRAMS + 1){
             ProgramData::printProgramData(i - 1);
         }
+#ifdef ENABLE_EXTERNAL_CONTROL
+        else {
+            lcdPrint_P(string_extControl);
+        }
+#endif
     }
-
     void run()
     {
         int8_t index = 0;
         while(true) {
+#ifdef ENABLE_EXTERNAL_CONTROL
+            Menu::initialize(MAX_PROGRAMS + 2);
+#else
             Menu::initialize(MAX_PROGRAMS + 1);
+#endif
             Menu::printMethod_ = printItem;
             Menu::setIndex(index);
             index = Menu::run();
-#ifdef ENABLE_SERIAL_CONTROL
-        if(index < -1) {
-        	if(extControl.getCommand() == ExtControl::CMD_STOP) {
-        		extControl.setState(ExtControl::STATE_STOPPED);
-        		index = 0;
-        	}
-        	else if(extControl.getCommand() == ExtControl::CMD_SETUP)
-                ProgramMenus::selectProgram(LOAD_VOLATILE_BATTERY);
-        }
-        else if(index >= 0) {
-        	extControl.setState(ExtControl::STATE_NOT_CONTROLING);
-        }
+#ifdef ENABLE_EXTERNAL_CONTROL
+
+			if(index == EXTERNAL_COMMAND_REQUEST) {
+				if(ExtControl::getCommand() == ExtControl::CMD_STOP) {
+					ExtControl::setState(ExtControl::STATE_STOPPED);
+					index = -1;
+				}
+				else if(ExtControl::getCommand() == ExtControl::CMD_SETUP)
+					ProgramMenus::selectProgram(ExtControl::getCommandData().data1);
+				else {
+					ExtControl::setState(ExtControl::STATE_IDLE);
+				}
+			}
+			else if(index == MENU_EXIT) {
+				ExtControl::setState(ExtControl::STATE_NOT_CONTROLING);
+			}
 #endif
             if(index >= 0)  {
                 if(index == 0) {
                     OptionsMenu::run();
-                } else {
+                } else if(index < MAX_PROGRAMS + 1){
                     ProgramMenus::selectProgram(index - 1);
                 }
+#ifdef ENABLE_EXTERNAL_CONTROL
+                else {
+            		if (ExtControl::currentState == ExtControl::STATE_NOT_CONTROLING) {
+            			ExtControl::setState(ExtControl::STATE_BEGIN);
+            		}
+                }
+#endif
             } else {
                 index = 0;
             }
