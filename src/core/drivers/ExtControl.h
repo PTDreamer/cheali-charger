@@ -10,6 +10,7 @@
 #else
 #include <QObject>
 #include "serial.h"
+#include "helper_and_stubs.h"
 #endif
 //#define EXTCONTROL_DEBUG
 #define MAGIC1 0xFE
@@ -122,6 +123,7 @@ enum error_type {
 	ERROR_MON_CAPACITY_CUTOFF,
 	ERROR_MON_TIME_LIMIT,
 	ERROR_MON_EXT_TEMP_CUTOFF,
+	ERROR_WRONG_SESSION_ID_RECEIVED,
 	LAST_ERROR_TYPE
 
 };
@@ -172,6 +174,7 @@ extern current_state_type currentState;
 
 #ifdef QT
 extern helper *help;
+void setSessionID(uint8_t sessionID);
 #endif
 void setError(error_type error);
 void init();
@@ -190,6 +193,7 @@ enum packet_process_status {
 	WAITING_MAGIC1,
 	WAITING_MAGIC2,
 	WAITING_NUMBER,
+	WAITING_SESSION_ID,
 	WAITING_TYPE,
 	WAITING_DATA,
 	WAITING_CRC1,
@@ -204,7 +208,7 @@ void processSetOptions();
 void processGetBatSettings(uint8_t index);
 void processSetBatSettings(uint8_t *buffer);
 void processVolatileBat();
-void processCommand();
+void processCommand(uint8_t session_id);
 
 //magic1
 //magic2

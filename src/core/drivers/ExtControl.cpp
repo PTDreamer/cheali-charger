@@ -44,6 +44,7 @@ static uint8_t rx_message[sizeof(largestSize)];
 static uint8_t tx_message[sizeof(largestSize)];
 static uint8_t currentMessageNumber_sent = 0;
 static uint8_t currentMessageNumber_received = 0;
+static uint8_t current_session_id = 0;
 static message_type currentTypeSent = ACK;
 static uint8_t currentSentAcked = true;
 static uint16_t currentSentTime = 0;
@@ -138,22 +139,22 @@ void ExtControl::doIdle() {
 	}
 	 }
 #endif
-	 if(true){//TODO MAYBE TAKE OUT THE IF
-		int c = -1;
-		do {
-			c = Serial::read();
-			if (c != -1) {
-				dataReady = processInputByte(c);
-			}
-		} while (c != -1);
-	}
+	int c = -1;
+	do {
+		c = Serial::read();
+		if (c != -1) {
+			dataReady = processInputByte(c);
+		}
+	} while (c != -1);
 }
+
 uint8_t ExtControl::processInputByte(int c) {
 	static uint8_t currentData = 0;
 	static uint8_t currentMsgSize = 0;
 	static uint16_t currentCrc = 0xffff;
 	static message_type msgType = ACK;
 	static uint16_t receivedCrc = 0;
+	static uint8_t session_id_received = 0;
 	switch (currentProcessStatus) {
 	case WAITING_MAGIC1:
 		if (c == MAGIC1) {
@@ -169,6 +170,11 @@ uint8_t ExtControl::processInputByte(int c) {
 		break;
 	case WAITING_NUMBER:
 		currentMessageNumber_received = c;
+		currentCrc = crc16_update(currentCrc, c);
+		currentProcessStatus = WAITING_SESSION_ID;
+		break;
+	case WAITING_SESSION_ID:
+		session_id_received = c;
 		currentCrc = crc16_update(currentCrc, c);
 		currentProcessStatus = WAITING_TYPE;
 		break;
@@ -205,7 +211,7 @@ uint8_t ExtControl::processInputByte(int c) {
 			if (msgType != ACK && msgType != NACK && msgType != PUT_REAL_INPUTS &&  msgType != PUT_VIRTUAL_INPUTS && msgType != PUT_EXTRA_VALUES)
 				sendPackage(&currentMessageNumber_received, ACK);
 #ifdef QT
-			help->trigger_messageReceived(msgType, rx_message);
+			help->trigger_messageReceived(msgType, rx_message, session_id_received);
 #endif
 			switch (msgType) {
 			case ACK:
@@ -228,7 +234,7 @@ uint8_t ExtControl::processInputByte(int c) {
 				processVolatileBat();
 				break;
 			case COMMAND:
-				processCommand();
+				processCommand(session_id_received);
 				break;
 			default:
 				break;
@@ -251,11 +257,21 @@ void ExtControl::processVolatileBat() {
 	memcpy(&volatileBattery, rx_message, sizeof(ProgramData::Battery));
 }
 
-void ExtControl::processCommand() {
+void ExtControl::processCommand(uint8_t session_id) {
+#ifndef QT
 	ExtControl::commandType command;
 	memcpy(&command, rx_message, sizeof(ExtControl::commandType));
 	currentCommand = (command_type)command.command;
 	commandData = command.data;
+	if(session_id != current_session_id) {
+		if(command.command == CMD_SETUP) {
+			current_session_id = session_id;
+		}
+		else {
+		    setError(ERROR_WRONG_SESSION_ID_RECEIVED);
+		    current_session_id = session_id;
+		}
+	}
 	switch (command.command) {
 	case ExtControl::CMD_IDLE:
 		break;
@@ -268,6 +284,7 @@ void ExtControl::processCommand() {
 	default:
 		break;
 	}
+#endif
 }
 #ifndef QT
 void ExtControl::setState(ExtControl::current_state_type state) {
@@ -403,6 +420,8 @@ bool ExtControl::sendPackage(uint8_t *buffer, message_type type,
 	Serial::write(currentMessageNumber_sent);
 	crc = crc16_update(crc, currentMessageNumber_sent);
 	++currentMessageNumber_sent;
+	Serial::write(current_session_id);
+	crc = crc16_update(crc, current_session_id);
 	Serial::write(type);
 	crc = crc16_update(crc, type);
 	for (uint8_t i = 0; i < messageSizes[type]; ++i) {
@@ -448,6 +467,9 @@ bool ExtControl::getConnected() {
 #ifdef EXTCONTROL_DEBUG
 #include "string.h"
 namespace ExtControl {
+	void setSessionID(uint8_t sessionID) {
+		current_session_id = sessionID;
+	}
 	char debug[10];
 }
 	void ExtControl::sendDebug(char *val) {
