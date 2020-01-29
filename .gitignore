@@ -21,3 +21,7 @@ Makefile
 cmake_install.cmake
 src/core/Version.h
 build_ubuntu.sh
+
+.csettings/
+
+*.user
