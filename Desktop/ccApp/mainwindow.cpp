@@ -8,7 +8,7 @@
 #include "httpserver.h"
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
-	ui(new Ui::MainWindow), keepalive(nullptr), currentSettings(nullptr)
+	ui(new Ui::MainWindow)
 {
 	ui->setupUi(this);
 	typeToStr.insert(ExtControl::ACK, "ACK");
@@ -74,7 +74,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	programs.insert(Program::CapacityCheck, "CapacityCheck");
 	programs.insert(Program::EditBattery, "EditBattery");
 	programs.insert(Program::Calibrate, "Calibrate");
-
+	http_server = new httpServer(this);
 	setState(ExtControl::STATE_IDLE);
 	setError(ExtControl::ERROR_NONE);
 	setProgram(Program::Charge);
@@ -90,15 +90,16 @@ MainWindow::MainWindow(QWidget *parent) :
 	helper *help = new helper(this);
 	ExtControl::help = help;
 	idleTimer.setSingleShot(true);
-	idleTimer.start(0);
 	QTimer *portsUpdateTimer = new QTimer(this);
 	portsUpdateTimer->start(1000);
 	connect(portsUpdateTimer, &QTimer::timeout, this, &MainWindow::updatePorts);
 	//	connect(port, &QSerialPort::readyRead, this, &MainWindow::handleReadyRead);
 	connect(port, &QSerialPort::errorOccurred, this, &MainWindow::handleError);
 	connect(&idleTimer, &QTimer::timeout, this, &MainWindow::idleSlot, Qt::QueuedConnection);
+	idleTimer.start(1000);
 	connect(help, &helper::messageReceived, this, &MainWindow::onMessageReceived);
 	connect(help, &helper::messageSent, this, &MainWindow::onMessageSent);
+	connect(this, &MainWindow::settingsChanged, this, &MainWindow::onSettingsChanged);
 	for(int x = 0; x < MAX_PROGRAMS; ++x) {
 		batteries.insert(x, &eeprom::data.battery[x]);
 		ui->batteries->addItem(QString::number(x));
@@ -113,11 +114,10 @@ MainWindow::MainWindow(QWidget *parent) :
 	qDebug() << "LARGEST:"<<sizeof (ExtControl::largestSize);
 	ExtControl::currentState = ExtControl::STATE_IDLE;
 	settings.UART = Settings::ExtControl;
-	qnam.setCookieJar(new QNetworkCookieJar(this));
 	connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::onOpenTriggered);
-	loadServerDefs();
-	httpServer *s = new httpServer(this);
-	s->start(8081);
+	http_server->loadServerDefs();
+	http_server->start(8081);
+	setSettings(&settings);
 }
 
 MainWindow::~MainWindow()
@@ -177,6 +177,8 @@ void MainWindow::idleSlot()
 
 void MainWindow::onMessageReceived(int val, uint8_t *buffer, uint8_t sessionID)
 {
+	if(val == ExtControl::ACK)
+		emit ackReceived(buffer[0]);
 	ui->current_session->setText(QString::number(sessionID));
 	ui->output->append("Received:" + typeToStr.value(ExtControl::message_type(val)));
 	switch (val) {
@@ -200,12 +202,15 @@ void MainWindow::onMessageReceived(int val, uint8_t *buffer, uint8_t sessionID)
 		break;
 	case ExtControl::PUT_REAL_INPUTS:
 		setRealValues(reinterpret_cast<ExtControl::realInputs*>(buffer));
+		http_server->sendInputs(reinterpret_cast<ExtControl::realInputs*>(buffer));
 		break;
 	case ExtControl::PUT_VIRTUAL_INPUTS:
 		setVirtualValues(reinterpret_cast<ExtControl::virtualInputs*>(buffer));
+		http_server->sendInputs(reinterpret_cast<ExtControl::virtualInputs*>(buffer));
 		break;
 	case ExtControl::PUT_EXTRA_VALUES:
 		setExtraValues(reinterpret_cast<ExtControl::extraValues*>(buffer));
+		http_server->sendInputs(reinterpret_cast<ExtControl::extraValues*>(buffer));
 		break;
 	case ExtControl::DEBUG_MSG:
 		ui->output->append("DEBUG:" + QString(reinterpret_cast<char*>(buffer)));
@@ -281,6 +286,22 @@ void MainWindow::loadSettings(Settings *s)
 	ui->UARToutput->setCurrentIndex(s->UARToutput);
 	ui->menuType->setCurrentIndex(s->menuType);
 	ui->menuButtons->setCurrentIndex(s->menuButtons);
+	emit settingsChanged(s);
+}
+
+void MainWindow::onSettingsChanged(Settings *settings) {
+	lastReceivedSettings = *settings;
+	waitForSettingsCond.wakeAll();
+}
+
+quint64 MainWindow::getCurrentSessionDB() const
+{
+	return currentSessionDB;
+}
+
+void MainWindow::setCurrentSessionDB(const quint64 &value)
+{
+	currentSessionDB = value;
 }
 
 void MainWindow::setBattery(int index)
@@ -313,7 +334,6 @@ void MainWindow::setBattery(int index)
 
 void MainWindow::setSettings(Settings *s)
 {
-	setCurrentSettings(s);
 	s->backlight = uint16_t (ui->backlight->value());
 	s->fanOn = uint16_t (ui->fanOn->currentIndex());
 	s->fanTempOn = uint16_t (ui->fanTempOn->value());
@@ -408,35 +428,29 @@ void MainWindow::handleBattery(uint8_t *buffer)
 	loadBattery(batteries.value(ui->batteries->currentIndex()));
 }
 
-void MainWindow::loadServerDefs()
+void MainWindow::loadAndSaveOptions(Settings *val)
 {
-	clientID = m_settings.value("clientID", 0).toString();
-	clientName = m_settings.value("clientName", "").toString();
-	serverPassword = m_settings.value("server_password", "").toString();
-	serverUsername = m_settings.value("server_username", "").toString();
-	serverAddress = m_settings.value("server_address", "").toString();
-	connectToServer = m_settings.value("connect_to_server", false).toBool();
-	if(connectToServer) {
-		if(!keepalive)
-			keepalive = new QTimer(this);
-		connect(keepalive, &QTimer::timeout, this, &MainWindow::sendServerKeepAlive, Qt::UniqueConnection);
-		keepalive->start(5000);
-	}
-	else {
-		if(keepalive)
-			keepalive->stop();
-	}
+	loadSettings(val);
+	on_pushButton_7_clicked();
 }
 
-Settings *MainWindow::getCurrentSettings() const
+Settings * MainWindow::getOptions()
 {
-	return currentSettings;
+	Settings *ret = nullptr;
+	on_pushButton_6_clicked();
+	waitForSettings.lock();
+	if(waitForSettingsCond.wait(&waitForSettings, 3000))
+	{
+		ret = &lastReceivedSettings;
+	}
+	waitForSettings.unlock();
+	return ret;
+
 }
 
-void MainWindow::setCurrentSettings(Settings *value)
+QMap<int, ProgramData::Battery *> *MainWindow::getBatteries()
 {
-	currentSettings = value;
-	emit settingsUpdated(value);
+	return  &batteries;
 }
 
 void MainWindow::setError(ExtControl::error_type error)
@@ -474,6 +488,8 @@ void MainWindow::setError(ExtControl::error_type error)
 		}
 	}
 	else {
+		all_stat.error = int(error);
+		all_stat.errorStr = errors.value(error);
 		newError = error;
 	}
 	lastStateOn = true;
@@ -517,6 +533,8 @@ void MainWindow::setProgram(Program::ProgramType prog)
 		}
 	}
 	else {
+		all_stat.program = int(prog);
+		all_stat.programStr = programs.value(prog);
 		newProg = prog;
 	}
 	lastStateOn = true;
@@ -532,7 +550,7 @@ void MainWindow::setState(ExtControl::current_state_type state)
 	static QQueue<ExtControl::current_state_type> fifo;
 	static bool lastStateOn = false;
 	ExtControl::current_state_type newState;
-	onTimer.setInterval(2000);
+	onTimer.setInterval(1000);
 	onTimer.setSingleShot(true);
 	connect(&onTimer, SIGNAL(timeout()), this, SLOT(setState()), Qt::UniqueConnection);
 	offTimer.setInterval(500);
@@ -562,6 +580,8 @@ void MainWindow::setState(ExtControl::current_state_type state)
 	else {
 		newState = state;
 	}
+	all_stat.state = int(newState);
+	all_stat.stateStr = states.value(newState);
 	lastStateOn = true;
 	ui->status_w->setStyleSheet("background-color:red;");
 	ui->status_lbl->setText(states.value(newState));
@@ -674,58 +694,17 @@ void MainWindow::on_pushButton_clicked()
 	ui->output->clear();
 }
 
-void MainWindow::sendServerKeepAlive()
-{
-		QString ip;
-		const QHostAddress &localhost = QHostAddress(QHostAddress::LocalHost);
-		for (const QHostAddress &address: QNetworkInterface::allAddresses()) {
-			if (address.protocol() == QAbstractSocket::IPv4Protocol && address != localhost)
-				 ip = address.toString();
-		}
-		QUrl url = QUrl(serverAddress + "database.php?chargerlive="+clientID+"&chargername="+clientName+"&chargerip="+ip);
-		reply = qnam.get(QNetworkRequest(url));
-		connect(reply, &QNetworkReply::finished, this, &MainWindow::httpFinished);
-		connect(reply, &QIODevice::readyRead, this, &MainWindow::httpReadyRead);
-
-}
-
-void MainWindow::httpReadyRead()
-{
-	//qDebug() << reply->readAll();
-}
-
-void MainWindow::httpFinished()
-{
-	QString username = "jose";
-	QString password = "deltadelta";
-	if (reply->error()) {
-		qDebug() << reply->errorString();
-		reply->deleteLater();
-		return;
-	}
-	const QVariant redirectionTarget = reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
-	if(redirectionTarget.toString().contains("login")) {
-		qDebug() << "login needed";
-		QByteArray loginData;
-		loginData.append("username="+serverUsername+"&password="+serverPassword);
-		QUrl url = QUrl(serverAddress + "login.php");
-		reply->deleteLater();
-		reply = qnam.post(QNetworkRequest(url), loginData);
-		connect(reply, &QNetworkReply::finished, this, &MainWindow::httpFinished);
-		connect(reply, &QIODevice::readyRead, this, &MainWindow::httpReadyRead);
-	}
-	else {
-		qDebug() << "OK";
-		reply->deleteLater();
-	}
-}
-
 void MainWindow::onOpenTriggered()
 {
 	options dialog(this);
 	dialog.setSettings(&m_settings);
 	int res = dialog.exec();
 	if(res == QDialog::Accepted)
-		loadServerDefs();
+		http_server->loadServerDefs();
 
+}
+
+void MainWindow::on_pbtest_clicked()
+{
+	qDebug() << http_server->getNewSessionID(2,3);
 }

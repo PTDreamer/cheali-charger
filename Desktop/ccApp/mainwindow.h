@@ -9,11 +9,13 @@
 #include <QSettings>
 #include <QNetworkAccessManager>
 #include <options.h>
+#include <QMutex>
+#include <QWaitCondition>
 
 namespace Ui {
 class MainWindow;
 }
-
+class httpServer;
 class MainWindow : public QMainWindow
 {
 	Q_OBJECT
@@ -21,8 +23,19 @@ class MainWindow : public QMainWindow
 public:
 	explicit MainWindow(QWidget *parent = nullptr);
 	~MainWindow();
-	Settings *getCurrentSettings() const;
-	void setCurrentSettings(Settings *value);
+	struct all_stat_type{
+		int state;
+		QString stateStr;
+		int error;
+		QString errorStr;
+		int program;
+		QString programStr;
+	};
+	void loadAndSaveOptions(Settings *val);
+	Settings *getOptions();
+	QMap<int, ProgramData::Battery *> *getBatteries();
+	quint64 getCurrentSessionDB() const;
+	void setCurrentSessionDB(const quint64 &value);//TODO
 
 private slots:
 	void on_pbConnect_clicked();
@@ -51,14 +64,15 @@ private slots:
 	void setError(ExtControl::error_type error = ExtControl::LAST_ERROR_TYPE);
 	void setProgram(Program::ProgramType prog = Program::LAST_PROGRAM_TYPE);
 	void on_pushButton_clicked();
-	void sendServerKeepAlive();
-	void httpReadyRead();
-	void httpFinished();
 	void onOpenTriggered();
+	void onSettingsChanged(Settings *settings);
+
+	void on_pbtest_clicked();
+
 private:
+	httpServer *http_server;
+	quint64 currentSessionDB;
 	QList<QNetworkCookie>  cookies;
-	QNetworkReply *reply;
-	QNetworkAccessManager qnam;
 	QHash<ExtControl::message_type, QString> typeToStr;
 	QSettings m_settings;
 	QTimer idleTimer;
@@ -72,24 +86,20 @@ private:
 	void setVirtualValues(ExtControl::virtualInputs *i);
 	void setExtraValues(ExtControl::extraValues *i);
 
-	QHash<int, ProgramData::Battery *> batteries;
+	QMap<int, ProgramData::Battery *> batteries;
 	QHash<ExtControl::current_state_type, QString> states;
 	QHash<ExtControl::error_type, QString> errors;
 	QHash<Program::ProgramType, QString> programs;
 
 	void handleBattery(uint8_t *buffer);
 
-	QString clientID;
-	QString clientName;
-	QString serverUsername;
-	QString serverPassword;
-	QString serverAddress;
-	bool connectToServer;
-	QTimer *keepalive;
-	void loadServerDefs();
-	Settings *currentSettings;
+	all_stat_type all_stat;
+	QMutex waitForSettings;
+	QWaitCondition waitForSettingsCond;
+	Settings lastReceivedSettings;
 signals:
-	void settingsUpdated(Settings *s);
+	void settingsChanged(Settings *s);
+	void ackReceived(uint8_t);
 };
 
 #endif // MAINWINDOW_H

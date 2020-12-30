@@ -148,14 +148,16 @@ namespace ProgramMenus {
 
 void ProgramMenus::selectProgram(uint8_t index)
 {
-    int8_t i;
+	int8_t i;
 #ifdef ENABLE_EXTERNAL_CONTROL
     if(index != MAX_PROGRAMS) {
     	ProgramData::loadProgramData(index);
     }
     else {
+    	ExtControl::sendDebug("AKI1");
     	memcpy(&ProgramData::battery, ExtControl::getVolatileBattery(), sizeof(ProgramData::Battery));
     	ProgramData::check();
+    	ExtControl::sendDebug("AKI2");
     }
 #endif
     while(true) {

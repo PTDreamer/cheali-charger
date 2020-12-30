@@ -18,6 +18,7 @@
 #include "StackInfo.h"
 #include "Balancer.h"
 #include "Monitor.h"
+#include "DelayStrategy.h"
 #endif
 #ifdef ENABLE_EXTERNAL_CONTROL
 
@@ -97,8 +98,10 @@ void ExtControl::doIdle() {
 	uint8_t dataReady = 0;
 	if (!isInit)
 		init();
+#ifndef QT
 	if (settings.UART != Settings::ExtControl)
 		return;
+#endif
 	if(currentState == STATE_NOT_CONTROLING)
 		return;
 	if (!currentSentAcked
@@ -143,6 +146,7 @@ void ExtControl::doIdle() {
 	do {
 		c = Serial::read();
 		if (c != -1) {
+//			Buzzer::soundProgramComplete();
 			dataReady = processInputByte(c);
 		}
 	} while (c != -1);
@@ -210,9 +214,6 @@ uint8_t ExtControl::processInputByte(int c) {
 		if (receivedCrc == currentCrc) {
 			if (msgType != ACK && msgType != NACK && msgType != PUT_REAL_INPUTS &&  msgType != PUT_VIRTUAL_INPUTS && msgType != PUT_EXTRA_VALUES)
 				sendPackage(&currentMessageNumber_received, ACK);
-#ifdef QT
-			help->trigger_messageReceived(msgType, rx_message, session_id_received);
-#endif
 			switch (msgType) {
 			case ACK:
 				if (rx_message[0] == (currentMessageNumber_sent - 1))
@@ -240,6 +241,7 @@ uint8_t ExtControl::processInputByte(int c) {
 				break;
 			}
 #ifdef QT
+			help->trigger_messageReceived(msgType, rx_message, session_id_received);
 			help->trigger_messageHandled(msgType);
 #endif
 			return 1;
@@ -259,8 +261,10 @@ void ExtControl::processVolatileBat() {
 
 void ExtControl::processCommand(uint8_t session_id) {
 #ifndef QT
+	ExtControl::sendDebug("A0");
 	ExtControl::commandType command;
 	memcpy(&command, rx_message, sizeof(ExtControl::commandType));
+	ExtControl::sendDebug("A01");
 	currentCommand = (command_type)command.command;
 	commandData = command.data;
 	if(session_id != current_session_id) {
@@ -272,18 +276,6 @@ void ExtControl::processCommand(uint8_t session_id) {
 		    current_session_id = session_id;
 		}
 	}
-	switch (command.command) {
-	case ExtControl::CMD_IDLE:
-		break;
-	case ExtControl::CMD_STOP:
-		break;
-	case ExtControl::CMD_SETUP:
-		break;
-	case ExtControl::CMD_START:
-		break;
-	default:
-		break;
-	}
 #endif
 }
 #ifndef QT
@@ -291,11 +283,11 @@ void ExtControl::setState(ExtControl::current_state_type state) {
 	if(currentState == STATE_NOT_CONTROLING && state != STATE_BEGIN)
 		return;
 	if (state != currentState) {
-		if(!sendPackage((uint8_t *) &state, ExtControl::STATE_CHANGED)) {
+		if(!sendPackage((uint8_t *) &state, ExtControl::STATE_CHANGED).sent) {
 			pushFifo(state, &statesBacklog);
 		}
 	}
-	ExtControl::current_state_type oldState = state;
+	ExtControl::current_state_type oldState = currentState;
 	switch (state) {
 	case ExtControl::STATE_BEGIN:
 		Serial::beginRx(settings.getUARTspeed());
@@ -333,7 +325,7 @@ void ExtControl::setState(ExtControl::current_state_type state) {
 		break;
 	}
 	if (oldState != currentState) {
-		if(!sendPackage((uint8_t *) &currentState, ExtControl::STATE_CHANGED)) {
+		if(!sendPackage((uint8_t *) &currentState, ExtControl::STATE_CHANGED).sent) {
 			pushFifo(currentState, &statesBacklog);
 		}
 	}
@@ -341,7 +333,7 @@ void ExtControl::setState(ExtControl::current_state_type state) {
 
 void ExtControl::setError(ExtControl::error_type error) {
 	if (current_error != error) {
-		if(!sendPackage((uint8_t *) &error, ExtControl::ERROR_OCORRED)) {
+		if(!sendPackage((uint8_t *) &error, ExtControl::ERROR_OCORRED).sent) {
 			pushFifo(error, &errorsBacklog);
 		}
 	}
@@ -384,24 +376,32 @@ void ExtControl::processSetBatSettings(uint8_t *buffer) {
 	eeprom::write(&eeprom::data.battery[info.index], info.battery);
 	eeprom::restoreProgramDataCRC();
 }
-bool ExtControl::sendPackage(uint8_t *buffer, message_type type,
+ExtControl::sendPackageResult ExtControl::sendPackage(uint8_t *buffer, message_type type,
 		bool isResend, bool requireACK) {
+	sendPackageResult ret;
 #ifdef QT
 	help->trigger_messageSent(type, buffer, isResend);
 #endif
 	static uint8_t resendCounter = 0;
 #ifdef EXTCONTROL_DEBUG
-	if (!currentSentAcked && !isResend && (type != DEBUG_MSG))
-		return false;
+	if (!currentSentAcked && !isResend && (type != DEBUG_MSG)) {
+		ret.sent = false;
+		return ret;
+	}
 #else
-	if (!currentSentAcked && !isResend)
-		return false;
+
+		if (!currentSentAcked && !isResend) {
+			ret.sent = false;
+			return ret;
+		}
 #endif
+
 	if (isResend) {
 		++resendCounter;
 		if (resendCounter > MAX_RESENDS) {
 			currentSentAcked = 1;
-			return false;
+			ret.sent = false;
+			return ret;
 		}
 		--currentMessageNumber_sent;
 	} else
@@ -419,6 +419,7 @@ bool ExtControl::sendPackage(uint8_t *buffer, message_type type,
 	Serial::write(MAGIC2);
 	Serial::write(currentMessageNumber_sent);
 	crc = crc16_update(crc, currentMessageNumber_sent);
+	ret.number = currentMessageNumber_sent;
 	++currentMessageNumber_sent;
 	Serial::write(current_session_id);
 	crc = crc16_update(crc, current_session_id);
@@ -430,7 +431,8 @@ bool ExtControl::sendPackage(uint8_t *buffer, message_type type,
 	}
 	Serial::write(crc >> 8);
 	Serial::write(crc & 0xff);
-	return true;
+	ret.sent = true;
+	return ret;
 }
 uint16_t ExtControl::crc16_update(uint16_t crc, uint8_t a) {
 	int i;
@@ -518,6 +520,19 @@ void ExtControl::sendRealValues() {
 	i.VoutMux = AnalogInputs::getRealValue(AnalogInputs::VoutMux);
 	i.Vout_minus_pin = AnalogInputs::getRealValue(AnalogInputs::Vout_minus_pin);
 	i.Vout_plus_pin = AnalogInputs::getRealValue(AnalogInputs::Vout_plus_pin);
+    i.strategy = STR_NONE;
+	if(SMPS::isPowerOn()) {
+        i.strategy = STR_CHARGE;
+    } else if(Discharger::isPowerOn()) {
+        i.strategy = STR_DISCHARGE;
+        if(SMPS::isPowerOn())
+        	i.strategy = STR_E;
+    } else if(::Balancer::isWorking()) {
+        i.strategy = STR_BALANCE;
+    }
+    else if(DelayStrategy::isDelay()) {
+        i.strategy = STR_DELAY;
+    }
 	sendPackage((uint8_t*)&i, PUT_REAL_INPUTS, false, false);
 }
 
@@ -569,7 +584,7 @@ void ExtControl::sendExtraValues() {
 }
 void ExtControl::setCurrentProgram(Program::ProgramType prog) {
 	if(currentProgram != prog) {
-		if(!sendPackage((uint8_t*)&prog, PROGRAM_CHANGED)) {
+		if(!sendPackage((uint8_t*)&prog, PROGRAM_CHANGED).sent) {
 			pushFifo(prog, &programsBacklog);
 		}
 	}

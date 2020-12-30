@@ -295,7 +295,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -2257,6 +2257,13 @@
          <widget class="QLabel" name="label_68">
           <property name="text">
            <string>Eout</string>
+          </property>
+         </widget>
+        </item>
+        <item row="12" column="5">
+         <widget class="QPushButton" name="pbtest">
+          <property name="text">
+           <string>PushButton</string>
           </property>
          </widget>
         </item>

@@ -19,6 +19,7 @@ void options::setSettings(QSettings *set)
 	 ui->le_username->setText(set->value("server_username", "").toString());
 	 ui->le_serverAdress->setText(set->value("server_address", "").toString());
 	 ui->le_clientName->setText(set->value("clientName", "").toString());
+	 ui->le_add_to_send->setText(set->value("server_add_to_send").toString());
 	 ui->cb_connectToServer->setChecked(set->value("connect_to_server", false).toBool());
 }
 
@@ -38,6 +39,7 @@ void options::onAccepted()
 	m_settings->setValue("server_password", ui->le_password->text());
 	m_settings->setValue("server_username", ui->le_username->text());
 	m_settings->setValue("server_address", s_address);
+	m_settings->setValue("server_add_to_send", ui->le_add_to_send->text());
 	m_settings->setValue("clientName", ui->le_clientName->text());
 	m_settings->setValue("connect_to_server", ui->cb_connectToServer->isChecked());
 }

@@ -180,6 +180,7 @@ void Program::dischargeOutputCapacitor()
 
 void Program::run(ProgramType prog)
 {
+	ExtControl::sendDebug("AKI3");
 #ifdef ENABLE_CALIBRATION_CHECK
     if(!Calibration::check())
         return;

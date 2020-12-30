@@ -25,3 +25,5 @@ build_ubuntu.sh
 .csettings/
 
 *.user
+/build/
+web/cheali/images/

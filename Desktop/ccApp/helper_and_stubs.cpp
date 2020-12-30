@@ -55,3 +55,5 @@ void eeprom::write(ProgramData::Battery *batt, ProgramData::Battery &bat){
 	{
 		emit messageHandled(val);
 	}
+
+

@@ -84,6 +84,21 @@ namespace ProgramData {
     enum BatteryType {NoneBatteryType, NiCd, NiMH, Pb, Life, Lilo, Lipo, Li430, Li435, NiZn, UnknownBatteryType, LED, LAST_BATTERY_TYPE};
     enum VoltageType {VNominal, VCharged, VDischarged, VStorage, VvalidEmpty, LAST_VOLTAGE_TYPE};
 
+	static ProgramData::BatteryClass batteryClassMap[] = {
+	/*None*/    ProgramData::ClassUnknown,
+	/*NiCd*/    ProgramData::ClassNiXX,
+	/*NiMH*/    ProgramData::ClassNiXX,
+	/*Pb*/      ProgramData::ClassPb,
+	/*Life*/    ProgramData::ClassLiXX,
+	/*Lilo*/    ProgramData::ClassLiXX,
+	/*Lipo*/    ProgramData::ClassLiXX,
+	/*Li430*/   ProgramData::ClassLiXX,
+	/*Li435*/   ProgramData::ClassLiXX,
+	/*NiZn*/    ProgramData::ClassNiZn,
+	/*Unknown*/ ProgramData::ClassUnknown,
+	/*LED*/     ProgramData::ClassLED
+	};
+
     struct Battery {
         uint16_t type;
         uint16_t capacity;
@@ -125,6 +140,8 @@ namespace ProgramData {
     } CHEALI_EEPROM_PACKED;
 	inline void check() {};
 };
+
+
 
 #endif /* PROGRAMDATA_H_ */
 

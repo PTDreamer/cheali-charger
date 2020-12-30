@@ -17,7 +17,7 @@
 #define MAGIC2 0xEF
 #define ALL_BAT_SETTINGS 255
 #ifdef ENABLE_EXTERNAL_CONTROL
-
+#define EXTCONTROL_DEBUG
 namespace ExtControl {
 #ifdef EXTCONTROL_DEBUG
 extern char debug[];
@@ -63,6 +63,7 @@ struct realInputs {
 	uint16_t Vb6_pin;
 	uint16_t IsmpsSet;
 	uint16_t IdischargeSet;
+	uint8_t  strategy;
 };
 
 struct virtualInputs {
@@ -99,6 +100,9 @@ struct largestSize {
 enum command_type {
 	CMD_START, CMD_SETUP, CMD_STOP, CMD_IDLE, LAST_COMMAND_TYPE
 };
+enum strategy_type { STR_NONE, STR_CHARGE, STR_DISCHARGE, STR_E, STR_BALANCE, STR_DELAY, LAST_STRATEGY_TYPE
+};
+
 enum current_state_type {
 	STATE_NOT_CONTROLING,
 	STATE_BEGIN,
@@ -186,7 +190,11 @@ void setState(current_state_type state);
 void setCurrentProgram(Program::ProgramType prog);
 bool getConnected(); //TODO
 uint8_t processInputByte(int c);
-bool sendPackage(uint8_t *buffer, message_type type, bool isResend = false, bool requireACK = true);
+struct sendPackageResult {
+	bool sent;
+	uint8_t number;
+};
+sendPackageResult sendPackage(uint8_t *buffer, message_type type, bool isResend = false, bool requireACK = true);
 
 bool externalControlRequested();
 enum packet_process_status {
@@ -209,7 +217,6 @@ void processGetBatSettings(uint8_t index);
 void processSetBatSettings(uint8_t *buffer);
 void processVolatileBat();
 void processCommand(uint8_t session_id);
-
 //magic1
 //magic2
 //number
